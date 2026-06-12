@@ -214,7 +214,7 @@ async function loadDay(date) {
     return;
   }
 
-  const { data } = await supabase
+  const { data } = await sbClient
     .from('bookings')
     .select('*, profiles(full_name, phone)')
     .eq('date', key)
@@ -279,7 +279,7 @@ function showDetail(dateKey, hour) {
 
 async function updateStatus(newStatus) {
   if (!selectedBookingId) return;
-  const { error } = await supabase.from('bookings').update({ status: newStatus }).eq('id', selectedBookingId);
+  const { error } = await sbClient.from('bookings').update({ status: newStatus }).eq('id', selectedBookingId);
   if (error) { showToast('Error al actualizar'); return; }
   showToast(newStatus === 'done' ? '¡Listo! Reserva completada' : 'Reserva cancelada', 'gold');
   await loadDay(viewDate);
@@ -304,7 +304,7 @@ async function loadWeek() {
 
   const startKey = dateKey(days[0]);
   const endKey   = dateKey(days[5]);
-  const { data } = await supabase
+  const { data } = await sbClient
     .from('bookings')
     .select('*, profiles(full_name)')
     .gte('date', startKey).lte('date', endKey)
@@ -354,7 +354,7 @@ function changeWeek(dir) {
 
 // ---- CLIENTES ----
 async function loadClients() {
-  const { data } = await supabase
+  const { data } = await sbClient
     .from('bookings')
     .select('*, profiles(id, full_name, phone)')
     .in('status', ['confirmed','done'])

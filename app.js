@@ -1,16 +1,22 @@
 // ============================================================
-// app.js — Cliente Supabase y helpers compartidos
+// supabase.js — Cliente Supabase compartido
 // ============================================================
 
+// ⚠️ REEMPLAZA ESTOS VALORES con los de tu proyecto Supabase
+// Los encuentras en: Settings > API
 const SUPABASE_URL = 'https://xuvubvznlczcwakifrsn.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1dnVidnpubGN6Y3dha2lmcnNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNzk5ODgsImV4cCI6MjA5Njg1NTk4OH0.SVOdEdtjdWtM93QgVFF9hVD6O3_ET2tLMaq1NP1ip_U';
 
+// Carga el cliente de Supabase (CDN)
 let sbClient;
 
 function initSupabase() {
-  sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { createClient } = window.supabase;
+  sbClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   return sbClient;
 }
+
+// ---- Auth helpers ----
 
 async function getCurrentUser() {
   const { data: { user } } = await sbClient.auth.getUser();
@@ -34,7 +40,7 @@ async function requireAuth(redirectTo = 'login.html') {
   return user;
 }
 
-async function requireRole(role, redirectTo = 'login.html') {
+async function requireRole(role, redirectTo = 'index.html') {
   const profile = await getCurrentProfile();
   if (!profile || profile.role !== role) { window.location.href = redirectTo; return null; }
   return profile;
@@ -44,6 +50,8 @@ async function signOut() {
   await sbClient.auth.signOut();
   window.location.href = 'login.html';
 }
+
+// ---- UI helpers ----
 
 function showToast(msg, type = '') {
   const t = document.getElementById('toast');
@@ -71,6 +79,7 @@ function hidePageLoader() {
   if (el) el.classList.add('hidden');
 }
 
+// ---- Fecha/hora helpers ----
 const MONTHS_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const DAYS_FULL = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const DAYS_SHORT = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
@@ -94,6 +103,7 @@ function formatDateLong(dateStr) {
   return DAYS_FULL[d.getDay()] + ', ' + d.getDate() + ' de ' + MONTHS_ES[d.getMonth()] + ' ' + d.getFullYear();
 }
 
+// Servicios disponibles
 const SERVICES = [
   'Corte tradicional',
   'Full navaja',
@@ -102,5 +112,4 @@ const SERVICES = [
   'Perfilados',
   'Cejas / barba',
   'Limpieza facial',
-];
 ];

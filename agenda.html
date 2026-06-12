@@ -268,7 +268,7 @@ async function pickDate(key) {
 }
 
 async function loadTakenSlots(dateStr) {
-  const { data } = await supabase
+  const { data } = await sbClient
     .from('bookings')
     .select('hour')
     .eq('date', dateStr)
@@ -327,7 +327,7 @@ async function confirmBooking() {
   err.classList.add('hidden');
   setLoading(btn, true);
 
-  const { error } = await supabase.from('bookings').insert({
+  const { error } = await sbClient.from('bookings').insert({
     client_id: profile.id,
     service: sel.service,
     date: sel.date,
@@ -363,7 +363,7 @@ function resetBooking() {
 // ---- My bookings ----
 async function loadMyBookings() {
   const el = document.getElementById('my-bookings-list');
-  const { data, error } = await supabase
+  const { data, error } = await sbClient
     .from('bookings')
     .select('*')
     .eq('client_id', profile.id)
@@ -393,7 +393,7 @@ async function loadMyBookings() {
 
 async function cancelBooking(id) {
   if (!confirm('¿Cancelar esta reserva?')) return;
-  const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
+  const { error } = await sbClient.from('bookings').update({ status: 'cancelled' }).eq('id', id);
   if (error) { showToast('Error al cancelar'); return; }
   showToast('Reserva cancelada', 'gold');
   loadMyBookings();
