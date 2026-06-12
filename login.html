@@ -106,7 +106,7 @@ function switchTab(tab) {
 }
 
 async function handleLogin(e) {
-  e.preventDefault();
+  e.preventDefault(); if (!sbClient) initSupabase();
   const btn = document.getElementById('btn-login');
   const errEl = document.getElementById('auth-error');
   errEl.classList.add('hidden');
@@ -115,7 +115,7 @@ async function handleLogin(e) {
   const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-pass').value;
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+ const { data, error } = await sbClient.auth.signInWithPassword({ email, password: pass });
   if (error) {
     errEl.textContent = error.message === 'Invalid login credentials'
       ? 'Email o contraseña incorrectos.'
