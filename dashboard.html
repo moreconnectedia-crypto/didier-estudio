@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Didier Estudio — Panel del barbero</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+  <style>
+    /* ---- Layout ---- */
+    .dash-grid { display:grid; grid-template-columns:1fr; gap:0; }
+    @media(min-width:700px) { .dash-grid { grid-template-columns:1fr 260px; gap:16px; align-items:start; } }
+
+    /* ---- Stats ---- */
+    .stats-row { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:1.25rem; }
+    @media(min-width:500px) { .stats-row { grid-template-columns:repeat(4,1fr); } }
+    .stat { background:var(--bg2); border-radius:var(--radius); padding:12px; }
+    .stat-lbl { font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); margin-bottom:5px; }
+    .stat-val { font-size:22px; font-weight:500; color:var(--gold-light); }
+    .stat-sub { font-size:10px; color:var(--text-dim); margin-top:2px; }
+
+    /* ---- Timeline ---- */
+    .timeline { display:grid; grid-template-columns:44px 1fr; border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+    .tl-time { font-size:10px; color:var(--text-dim); text-align:right; padding:0 8px 0 0; height:60px; display:flex; align-items:flex-start; padding-top:7px; border-right:1px solid var(--border); background:var(--bg2); }
+    .tl-cell { height:60px; border-bottom:1px solid var(--border); position:relative; }
+    .tl-cell:last-child { border-bottom:none; }
+    .tl-free { height:100%; display:flex; align-items:center; padding-left:10px; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); }
+    .tl-block {
+      position:absolute; inset:4px 6px; border-radius:6px;
+      padding:6px 10px; cursor:pointer; transition:filter .15s;
+    }
+    .tl-block:hover { filter:brightness(1.12); }
+    .tl-block.confirmed { background:rgba(184,151,42,0.1); border:1px solid var(--gold-dim); }
+    .tl-block.done      { background:var(--bg3); border:1px solid var(--border); opacity:.5; }
+    .tl-block.cancelled { background:rgba(122,31,31,0.1); border:1px solid var(--red); opacity:.5; }
+    .tl-name { font-size:12px; font-weight:500; color:var(--gold-light); }
+    .tl-name.done,.tl-name.cancelled { color:var(--text-muted); }
+    .tl-svc  { font-size:10px; color:var(--gold-dim); margin-top:1px; }
+    .tl-phone{ font-size:10px; color:var(--text-dim); margin-top:1px; }
+
+    /* ---- Detail panel ---- */
+    .detail { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1rem; position:sticky; top:72px; }
+    .detail-row { margin-bottom:12px; }
+    .detail-lbl { font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); margin-bottom:3px; }
+    .detail-val { font-size:13px; color:var(--text); }
+
+    /* ---- Week mini ---- */
+    .week-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .week-scroll { overflow-x:auto; }
+    .week-table { width:100%; border-collapse:collapse; font-size:11px; min-width:480px; }
+    .week-table th { padding:6px 4px; text-align:center; font-weight:400; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); border-bottom:1px solid var(--border); }
+    .week-table .wt-time { width:44px; color:var(--text-dim); text-align:right; padding-right:8px; border-right:1px solid var(--border); }
+    .week-table td { padding:2px 3px; vertical-align:top; height:34px; border-bottom:1px solid var(--border); border-right:1px solid var(--border); }
+    .week-table td:last-child { border-right:none; }
+    .w-block { background:rgba(184,151,42,0.1); border:1px solid var(--gold-dim); border-radius:4px; padding:2px 5px; font-size:9px; color:var(--gold-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .w-block.green { background:rgba(59,109,17,0.1); border-color:var(--green); color:var(--green-light); }
+    .w-closed { background:var(--bg2); }
+
+    /* ---- Clients tab ---- */
+    .client-row { display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid var(--border); }
+    .client-row:last-child { border-bottom:none; }
+  </style>
+</head>
+<body>
+
+<div id="page-loader"><div class="spinner"></div></div>
+<div id="toast"></div>
+
+<!-- Top bar -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <div>
+      <div class="topbar-logo">Didier Estudio</div>
+      <div class="topbar-sub">Panel del barbero</div>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn btn-ghost btn-sm" onclick="signOut()"><i class="ti ti-logout" aria-hidden="true"></i></button>
+  </div>
+</header>
+
+<!-- Nav tabs -->
+<div style="border-bottom:1px solid var(--border);padding:0 1rem">
+  <div style="display:flex;max-width:960px;margin:0 auto">
+    <button onclick="switchTab('hoy',this)" id="tb-hoy"
+      style="padding:11px 16px;background:none;border:none;font-family:var(--font-body);font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid var(--gold);color:var(--gold-light)">
+      Hoy
+    </button>
+    <button onclick="switchTab('semana',this)" id="tb-semana"
+      style="padding:11px 16px;background:none;border:none;font-family:var(--font-body);font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-muted)">
+      Semana
+    </button>
+    <button onclick="switchTab('clientes',this)" id="tb-clientes"
+      style="padding:11px 16px;background:none;border:none;font-family:var(--font-body);font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-muted)">
+      Clientes
+    </button>
+  </div>
+</div>
+
+<main class="container-wide" style="padding-top:1.25rem;padding-bottom:3rem">
+
+  <!-- ===== HOY ===== -->
+  <div id="sec-hoy">
+    <!-- Stats -->
+    <div class="stats-row" id="stats-row">
+      <div class="stat"><div class="stat-lbl">Reservas</div><div class="stat-val" id="st-count">—</div><div class="stat-sub">de hoy</div></div>
+      <div class="stat"><div class="stat-lbl">Horas libres</div><div class="stat-val" id="st-free">—</div><div class="stat-sub">disponibles</div></div>
+      <div class="stat"><div class="stat-lbl">Próxima</div><div class="stat-val" id="st-next" style="font-size:16px;padding-top:4px">—</div><div class="stat-sub" id="st-next-name"></div></div>
+      <div class="stat"><div class="stat-lbl">Ocupación</div><div class="stat-val" id="st-pct">—</div><div class="stat-sub">del día</div></div>
+    </div>
+
+    <!-- Date nav -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <div>
+        <div id="day-title" style="font-size:15px;font-weight:500;color:var(--text)"></div>
+        <div id="day-sub" style="font-size:11px;color:var(--text-muted);margin-top:2px"></div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm" onclick="changeDay(-1)"><i class="ti ti-chevron-left"></i></button>
+        <button class="btn btn-outline btn-sm" onclick="changeDay(0)" style="padding:0 10px;font-size:10px;letter-spacing:1px">Hoy</button>
+        <button class="btn btn-outline btn-sm" onclick="changeDay(1)"><i class="ti ti-chevron-right"></i></button>
+      </div>
+    </div>
+
+    <div class="dash-grid">
+      <!-- Timeline -->
+      <div>
+        <div class="timeline" id="timeline">
+          <div class="flex-center" style="grid-column:1/-1;padding:2rem"><div class="spinner"></div></div>
+        </div>
+      </div>
+      <!-- Detail -->
+      <div>
+        <div class="detail" id="detail-panel">
+          <div class="empty" style="padding:1.5rem 0">
+            <i class="ti ti-hand-click" style="color:var(--text-dim)"></i>
+            <p>Toca una reserva para ver detalles</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SEMANA ===== -->
+  <div id="sec-semana" class="hidden">
+    <div class="week-nav">
+      <div id="week-title" style="font-size:14px;color:var(--text)"></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm" onclick="changeWeek(-1)"><i class="ti ti-chevron-left"></i></button>
+        <button class="btn btn-outline btn-sm" onclick="changeWeek(0)" style="padding:0 10px;font-size:10px;letter-spacing:1px">Esta semana</button>
+        <button class="btn btn-outline btn-sm" onclick="changeWeek(1)"><i class="ti ti-chevron-right"></i></button>
+      </div>
+    </div>
+    <div class="week-scroll">
+      <table class="week-table" id="week-table"></table>
+    </div>
+  </div>
+
+  <!-- ===== CLIENTES ===== -->
+  <div id="sec-clientes" class="hidden">
+    <div style="margin-bottom:1rem">
+      <input type="text" id="client-search" class="field-input" placeholder="Buscar por nombre o teléfono..." oninput="filterClients()">
+    </div>
+    <div id="clients-list"><div class="flex-center" style="padding:2rem"><div class="spinner"></div></div></div>
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supabase.js"></script>
+<script>
+initSupabase();
+
+const now = new Date();
+let viewDate = new Date(now);
+let weekOffset = 0;
+let allBookings = {};
+let selectedBookingId = null;
+let allClients = [];
+
+// ---- Init ----
+(async () => {
+  await requireRole('barber', 'login.html');
+  await loadDay(viewDate);
+  hidePageLoader();
+})();
+
+// ---- Tabs ----
+function switchTab(name, btn) {
+  ['hoy','semana','clientes'].forEach(t => document.getElementById('sec-'+t).classList.toggle('hidden', t !== name));
+  document.querySelectorAll('[id^="tb-"]').forEach(b => {
+    b.style.borderBottomColor = 'transparent';
+    b.style.color = 'var(--text-muted)';
+  });
+  btn.style.borderBottomColor = 'var(--gold)';
+  btn.style.color = 'var(--gold-light)';
+  if (name === 'semana') loadWeek();
+  if (name === 'clientes') loadClients();
+}
+
+// ---- HOY ----
+async function loadDay(date) {
+  const key = dateKey(date);
+  const dow = date.getDay();
+  const isClosed = dow === 0;
+  const close = dow === 6 ? 18 : 20;
+
+  document.getElementById('day-title').textContent = formatDateLong(key);
+  document.getElementById('day-sub').textContent = isClosed ? 'Cerrado' : (dow === 6 ? 'Sábado: 9:00 – 18:00' : 'Lunes a viernes: 9:00 – 20:00');
+
+  if (isClosed) {
+    document.getElementById('timeline').innerHTML = '<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--text-muted);font-size:12px;letter-spacing:1px">Cerrado los domingos</div>';
+    ['st-count','st-free','st-pct'].forEach(id => document.getElementById(id).textContent = '—');
+    return;
+  }
+
+  const { data } = await supabase
+    .from('bookings')
+    .select('*, profiles(full_name, phone)')
+    .eq('date', key)
+    .order('hour');
+
+  const byHour = {};
+  (data || []).forEach(b => byHour[b.hour] = b);
+  allBookings[key] = byHour;
+
+  const booked = (data || []).filter(b => b.status === 'confirmed').length;
+  const total  = close - 9;
+  document.getElementById('st-count').textContent = booked;
+  document.getElementById('st-free').textContent  = total - booked;
+  document.getElementById('st-pct').textContent   = Math.round(booked / total * 100) + '%';
+
+  const nowH = now.getHours();
+  const isToday = dateKey(date) === dateKey(now);
+  let nextB = null;
+  for (let h = 9; h < close; h++) {
+    if (byHour[h] && byHour[h].status === 'confirmed' && (!isToday || h >= nowH)) { nextB = byHour[h]; break; }
+  }
+  document.getElementById('st-next').textContent = nextB ? fmt2(nextB.hour) + ':00' : '—';
+  document.getElementById('st-next-name').textContent = nextB ? nextB.profiles?.full_name?.split(' ')[0] || '' : 'sin más';
+
+  let tlHtml = '';
+  for (let h = 9; h < close; h++) {
+    tlHtml += `<div class="tl-time">${fmt2(h)}</div>`;
+    const b = byHour[h];
+    if (b && b.status !== 'cancelled') {
+      tlHtml += `<div class="tl-cell"><div class="tl-block ${b.status}" onclick="showDetail('${key}',${h})">
+        <div class="tl-name ${b.status}">${b.profiles?.full_name || '—'}</div>
+        <div class="tl-svc">${b.service}</div>
+        <div class="tl-phone">${b.profiles?.phone || ''}</div>
+      </div></div>`;
+    } else {
+      tlHtml += `<div class="tl-cell"><div class="tl-free">Libre</div></div>`;
+    }
+  }
+  document.getElementById('timeline').innerHTML = tlHtml;
+  document.getElementById('detail-panel').innerHTML = `<div class="empty" style="padding:1.5rem 0"><i class="ti ti-hand-click" style="color:var(--text-dim)"></i><p>Toca una reserva</p></div>`;
+}
+
+function showDetail(dateKey, hour) {
+  const b = allBookings[dateKey]?.[hour];
+  if (!b) return;
+  selectedBookingId = b.id;
+
+  const actions = b.status === 'confirmed' ? `
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-success btn-sm btn-full" onclick="updateStatus('done')"><i class="ti ti-check"></i> Listo</button>
+      <button class="btn btn-danger btn-sm btn-full" onclick="updateStatus('cancelled')"><i class="ti ti-x"></i> Cancelar</button>
+    </div>` : `<div style="margin-top:12px"><span class="badge badge-${b.status}">${{done:'Completada',cancelled:'Cancelada'}[b.status]}</span></div>`;
+
+  document.getElementById('detail-panel').innerHTML = `
+    <div class="detail-row"><div class="detail-lbl">Hora</div><div class="detail-val text-gold">${fmt2(b.hour)}:00 – ${fmt2(b.hour+1)}:00</div></div>
+    <div class="detail-row"><div class="detail-lbl">Cliente</div><div class="detail-val">${b.profiles?.full_name || '—'}</div></div>
+    <div class="detail-row"><div class="detail-lbl">Teléfono</div><div class="detail-val"><a href="tel:${b.profiles?.phone}" style="color:var(--gold-light)">${b.profiles?.phone || '—'}</a></div></div>
+    <div class="detail-row"><div class="detail-lbl">Servicio</div><div class="detail-val">${b.service}</div></div>
+    <div class="detail-row"><div class="detail-lbl">Estado</div><span class="badge badge-${b.status}">${{confirmed:'Confirmada',done:'Completada',cancelled:'Cancelada'}[b.status]}</span></div>
+    ${actions}`;
+}
+
+async function updateStatus(newStatus) {
+  if (!selectedBookingId) return;
+  const { error } = await supabase.from('bookings').update({ status: newStatus }).eq('id', selectedBookingId);
+  if (error) { showToast('Error al actualizar'); return; }
+  showToast(newStatus === 'done' ? '¡Listo! Reserva completada' : 'Reserva cancelada', 'gold');
+  await loadDay(viewDate);
+}
+
+function changeDay(dir) {
+  if (dir === 0) viewDate = new Date(now);
+  else viewDate = new Date(viewDate.getTime() + dir * 86400000);
+  selectedBookingId = null;
+  loadDay(viewDate);
+}
+
+// ---- SEMANA ----
+async function loadWeek() {
+  const monday = getMondayOfWeek(weekOffset);
+  const days = [];
+  for (let i = 0; i < 6; i++) days.push(new Date(monday.getTime() + i * 86400000));
+
+  document.getElementById('week-title').textContent =
+    days[0].getDate() + ' ' + MONTHS_ES[days[0].getMonth()] + ' – ' +
+    days[5].getDate() + ' ' + MONTHS_ES[days[5].getMonth()] + ' ' + days[5].getFullYear();
+
+  const startKey = dateKey(days[0]);
+  const endKey   = dateKey(days[5]);
+  const { data } = await supabase
+    .from('bookings')
+    .select('*, profiles(full_name)')
+    .gte('date', startKey).lte('date', endKey)
+    .in('status', ['confirmed','done']);
+
+  const map = {};
+  (data || []).forEach(b => {
+    if (!map[b.date]) map[b.date] = {};
+    map[b.date][b.hour] = b;
+  });
+
+  const todayKey = dateKey(now);
+  let html = '<thead><tr><th></th>' + days.map(d =>
+    `<th style="color:${dateKey(d)===todayKey?'var(--gold-light)':'var(--text-muted)'}">${DAYS_SHORT[d.getDay()]}<br><span style="font-size:11px;font-weight:500;color:${dateKey(d)===todayKey?'var(--gold-light)':'var(--text)'}">${d.getDate()}</span></th>`
+  ).join('') + '</tr></thead><tbody>';
+
+  for (let h = 9; h < 20; h++) {
+    html += `<tr><td class="wt-time">${fmt2(h)}h</td>`;
+    days.forEach(d => {
+      const dow = d.getDay();
+      const close = dow === 6 ? 18 : 20;
+      if (dow === 0 || h >= close) {
+        html += `<td class="w-closed"></td>`;
+      } else {
+        const b = map[dateKey(d)]?.[h];
+        html += b
+          ? `<td><div class="w-block${b.status==='done'?' green':''}">${b.profiles?.full_name?.split(' ')[0] || '—'}</div></td>`
+          : `<td></td>`;
+      }
+    });
+    html += '</tr>';
+  }
+  html += '</tbody>';
+  document.getElementById('week-table').innerHTML = html;
+}
+
+function getMondayOfWeek(offset) {
+  const d = new Date(now);
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day) + offset * 7);
+  return d;
+}
+function changeWeek(dir) {
+  weekOffset = dir === 0 ? 0 : weekOffset + dir;
+  loadWeek();
+}
+
+// ---- CLIENTES ----
+async function loadClients() {
+  const { data } = await supabase
+    .from('bookings')
+    .select('*, profiles(id, full_name, phone)')
+    .in('status', ['confirmed','done'])
+    .order('created_at', { ascending: false });
+
+  const map = {};
+  (data || []).forEach(b => {
+    const pid = b.profiles?.id;
+    if (!pid) return;
+    if (!map[pid]) map[pid] = { ...b.profiles, visits: 0, last_service: '', last_date: '' };
+    map[pid].visits++;
+    if (!map[pid].last_date || b.date > map[pid].last_date) {
+      map[pid].last_date = b.date;
+      map[pid].last_service = b.service;
+    }
+  });
+  allClients = Object.values(map).sort((a,b) => b.visits - a.visits);
+  renderClients(allClients);
+}
+
+function renderClients(list) {
+  const el = document.getElementById('clients-list');
+  if (!list.length) { el.innerHTML = `<div class="empty"><i class="ti ti-users"></i><p>Sin clientes aún</p></div>`; return; }
+  el.innerHTML = list.map(c => {
+    const init = (c.full_name || '?').split(' ').map(w=>w[0]).slice(0,2).join('');
+    return `<div class="client-row">
+      <div class="avatar">${init}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;color:var(--text)">${c.full_name}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${c.phone || '—'} · ${c.last_service}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:11px;color:var(--gold)">${c.visits} visita${c.visits!==1?'s':''}</div>
+        ${c.phone ? `<a href="https://wa.me/${c.phone.replace(/\D/g,'')}" target="_blank" style="font-size:10px;color:var(--green-light)"><i class="ti ti-brand-whatsapp"></i> WhatsApp</a>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterClients() {
+  const q = document.getElementById('client-search').value.toLowerCase();
+  renderClients(allClients.filter(c =>
+    (c.full_name || '').toLowerCase().includes(q) || (c.phone || '').includes(q)
+  ));
+}
+</script>
+</body>
+</html>

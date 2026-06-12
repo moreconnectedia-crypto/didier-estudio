@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Didier Estudio — Reservar hora</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+  <style>
+    /* ---- Step indicator ---- */
+    .steps { display:flex; align-items:center; padding: 1rem 0 1.5rem; }
+    .step  { display:flex; flex-direction:column; align-items:center; gap:5px; flex:1; }
+    .step-circle {
+      width:28px; height:28px; border-radius:50%; border:1.5px solid var(--border-mid);
+      display:flex; align-items:center; justify-content:center;
+      font-size:11px; color:var(--text-muted); background:var(--bg3);
+    }
+    .step.done   .step-circle { background:var(--gold); border-color:var(--gold); color:#0a0a0a; }
+    .step.active .step-circle { border-color:var(--gold-light); color:var(--gold-light); }
+    .step-lbl { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); }
+    .step.done   .step-lbl { color:var(--gold-dim); }
+    .step.active .step-lbl { color:var(--gold-light); }
+    .step-line { flex:1; height:1px; background:var(--border); margin-bottom:14px; }
+    .step-line.done { background:var(--gold-dim); }
+
+    /* ---- Services grid ---- */
+    .svc-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .svc-card {
+      background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius);
+      padding:14px 12px; cursor:pointer; transition:all .15s;
+    }
+    .svc-card:hover   { border-color:var(--gold-dim); }
+    .svc-card.selected{ border-color:var(--gold); background:rgba(184,151,42,0.06); }
+    .svc-name { font-size:12px; letter-spacing:0.5px; color:var(--text); }
+    .svc-dur  { font-size:11px; color:var(--text-muted); margin-top:3px; }
+
+    /* ---- Calendar ---- */
+    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+    .cal-dn   { text-align:center; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); padding:6px 0; }
+    .cal-day  { text-align:center; padding:9px 4px; border-radius:6px; font-size:13px; cursor:default; transition:all .12s; }
+    .cal-day.avail   { cursor:pointer; color:var(--text); }
+    .cal-day.avail:hover { background:var(--bg4); }
+    .cal-day.selected{ background:var(--gold); color:#0a0a0a; font-weight:500; }
+    .cal-day.today   { color:var(--gold-light); }
+    .cal-day.past    { color:var(--text-dim); }
+    .cal-day.closed  { color:var(--text-dim); text-decoration:line-through; }
+
+    /* ---- Slot chips ---- */
+    .slots-wrap { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+    .slot-chip {
+      background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius);
+      padding:10px 4px; text-align:center; font-size:12px; cursor:pointer; transition:all .12s;
+    }
+    .slot-chip:hover    { border-color:var(--gold-dim); }
+    .slot-chip.selected { border-color:var(--gold); background:rgba(184,151,42,0.08); color:var(--gold-light); }
+    .slot-chip.taken    { color:var(--text-dim); border-color:var(--border); cursor:not-allowed; background:var(--bg2); text-decoration:line-through; }
+
+    /* ---- My bookings ---- */
+    .booking-item { padding:14px 0; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; gap:12px; }
+    .booking-item:last-child { border-bottom:none; }
+    .booking-dot { width:8px; height:8px; border-radius:50%; background:var(--gold); margin-top:5px; flex-shrink:0; }
+    .booking-dot.cancelled { background:var(--red); }
+    .booking-dot.done { background:var(--text-dim); }
+  </style>
+</head>
+<body>
+
+<div id="page-loader"><div class="spinner"></div></div>
+<div id="toast"></div>
+
+<!-- Top bar -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <div>
+      <div class="topbar-logo">Didier Estudio</div>
+      <div class="topbar-sub">Barbería</div>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <span id="user-name" class="text-small text-muted"></span>
+    <button class="btn btn-ghost btn-sm" onclick="signOut()" title="Salir"><i class="ti ti-logout" aria-hidden="true"></i></button>
+  </div>
+</header>
+
+<main class="container" style="padding-top:1.5rem;padding-bottom:3rem">
+
+  <!-- Nav tabs -->
+  <div style="display:flex;border-bottom:1px solid var(--border);margin-bottom:1.5rem">
+    <button onclick="showSection('reservar',this)" id="nav-reservar"
+      style="flex:1;padding:10px 4px;background:none;border:none;font-family:var(--font-body);font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid var(--gold);color:var(--gold-light)">
+      Reservar
+    </button>
+    <button onclick="showSection('mis-reservas',this)" id="nav-mis"
+      style="flex:1;padding:10px 4px;background:none;border:none;font-family:var(--font-body);font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-muted)">
+      Mis reservas
+    </button>
+  </div>
+
+  <!-- ===== RESERVAR ===== -->
+  <section id="sec-reservar">
+
+    <!-- Steps -->
+    <div class="steps">
+      <div class="step done" id="stp-1"><div class="step-circle">1</div><div class="step-lbl">Servicio</div></div>
+      <div class="step-line" id="ln-1"></div>
+      <div class="step active" id="stp-2"><div class="step-circle">2</div><div class="step-lbl">Fecha</div></div>
+      <div class="step-line" id="ln-2"></div>
+      <div class="step" id="stp-3"><div class="step-circle">3</div><div class="step-lbl">Hora</div></div>
+      <div class="step-line" id="ln-3"></div>
+      <div class="step" id="stp-4"><div class="step-circle">4</div><div class="step-lbl">Confirmar</div></div>
+    </div>
+
+    <!-- Step 1 -->
+    <div id="fs-1">
+      <p class="text-small text-muted mb-2">¿Qué servicio necesitas?</p>
+      <div class="svc-grid" id="svc-list"></div>
+      <button class="btn btn-gold btn-full mt-3" id="btn-fs1" onclick="goStep(2)" disabled>Continuar</button>
+    </div>
+
+    <!-- Step 2 -->
+    <div id="fs-2" class="hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+        <button onclick="prevMonth()" class="btn btn-outline btn-sm"><i class="ti ti-chevron-left"></i></button>
+        <span id="cal-label" style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--gold-light)"></span>
+        <button onclick="nextMonth()" class="btn btn-outline btn-sm"><i class="ti ti-chevron-right"></i></button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div style="display:flex;gap:8px;margin-top:1.5rem">
+        <button class="btn btn-outline" onclick="goStep(1)">Atrás</button>
+        <button class="btn btn-gold" id="btn-fs2" onclick="goStep(3)" disabled style="flex:1">Continuar</button>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div id="fs-3" class="hidden">
+      <p class="text-small text-muted mb-2" id="slots-label"></p>
+      <div class="slots-wrap" id="slots-grid"></div>
+      <p class="text-small text-muted mt-2" id="slots-note"></p>
+      <div style="display:flex;gap:8px;margin-top:1.5rem">
+        <button class="btn btn-outline" onclick="goStep(2)">Atrás</button>
+        <button class="btn btn-gold" id="btn-fs3" onclick="goStep(4)" disabled style="flex:1">Continuar</button>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div id="fs-4" class="hidden">
+      <div class="card card-gold mb-2" id="summary-box"></div>
+      <div id="booking-error" class="form-error hidden"></div>
+      <div style="display:flex;gap:8px;margin-top:1rem">
+        <button class="btn btn-outline" onclick="goStep(3)">Atrás</button>
+        <button class="btn btn-gold" id="btn-confirm" onclick="confirmBooking()" style="flex:1">Confirmar reserva</button>
+      </div>
+    </div>
+
+    <!-- Step 5 success -->
+    <div id="fs-5" class="hidden" style="text-align:center;padding:2rem 0">
+      <div style="width:60px;height:60px;border-radius:50%;border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;font-size:28px;color:var(--gold)">
+        <i class="ti ti-check"></i>
+      </div>
+      <h2 style="font-family:var(--font-display);font-weight:300;letter-spacing:3px;margin-bottom:8px">¡Reservado!</h2>
+      <div id="success-detail" class="text-muted text-small" style="line-height:1.8"></div>
+      <button class="btn btn-gold btn-full mt-3" onclick="resetBooking()">Nueva reserva</button>
+    </div>
+
+  </section>
+
+  <!-- ===== MIS RESERVAS ===== -->
+  <section id="sec-mis-reservas" class="hidden">
+    <div id="my-bookings-list">
+      <div class="flex-center" style="padding:3rem"><div class="spinner"></div></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supabase.js"></script>
+<script>
+initSupabase();
+
+let profile = null;
+let sel = { service: null, date: null, slot: null };
+let calYear, calMonth;
+let takenSlots = {};
+
+const now = new Date();
+calYear = now.getFullYear();
+calMonth = now.getMonth();
+
+// ---- Init ----
+(async () => {
+  const user = await requireAuth('login.html');
+  if (!user) return;
+  profile = await getCurrentProfile();
+  if (profile?.role === 'barber') { window.location.href = 'dashboard.html'; return; }
+  document.getElementById('user-name').textContent = profile?.full_name?.split(' ')[0] || '';
+  renderServices();
+  hidePageLoader();
+})();
+
+// ---- Nav ----
+function showSection(name, btn) {
+  document.getElementById('sec-reservar').classList.toggle('hidden', name !== 'reservar');
+  document.getElementById('sec-mis-reservas').classList.toggle('hidden', name !== 'mis-reservas');
+  document.querySelectorAll('[id^="nav-"]').forEach(b => {
+    b.style.borderBottomColor = 'transparent';
+    b.style.color = 'var(--text-muted)';
+  });
+  btn.style.borderBottomColor = 'var(--gold)';
+  btn.style.color = 'var(--gold-light)';
+  if (name === 'mis-reservas') loadMyBookings();
+}
+
+// ---- Steps ----
+function goStep(n) {
+  for (let i = 1; i <= 5; i++) document.getElementById('fs-'+i).classList.toggle('hidden', i !== n);
+  for (let i = 1; i <= 4; i++) {
+    const s = document.getElementById('stp-'+i);
+    s.className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
+    const l = document.getElementById('ln-'+i);
+    if (l) l.className = 'step-line' + (i < n ? ' done' : '');
+  }
+  if (n === 2) renderCal();
+  if (n === 3) renderSlots();
+  if (n === 4) renderSummary();
+}
+
+// ---- Services ----
+function renderServices() {
+  document.getElementById('svc-list').innerHTML = SERVICES.map(s => `
+    <div class="svc-card${sel.service === s ? ' selected' : ''}" onclick="pickService('${s}')">
+      <div class="svc-name">${s}</div>
+      <div class="svc-dur">1 hora</div>
+    </div>`).join('');
+  document.getElementById('btn-fs1').disabled = !sel.service;
+}
+function pickService(s) { sel.service = s; renderServices(); }
+
+// ---- Calendar ----
+function renderCal() {
+  const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('cal-label').textContent = MONTHS[calMonth] + ' ' + calYear;
+  const first = new Date(calYear, calMonth, 1).getDay();
+  const days  = new Date(calYear, calMonth + 1, 0).getDate();
+  let html = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(d=>`<div class="cal-dn">${d}</div>`).join('');
+  for (let i = 0; i < first; i++) html += '<div></div>';
+  for (let d = 1; d <= days; d++) {
+    const date = new Date(calYear, calMonth, d);
+    const dow  = date.getDay();
+    const key  = dateKey(date);
+    const past = date < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const closed = dow === 0;
+    let cls = 'cal-day';
+    if (past || closed) cls += closed ? ' closed' : ' past';
+    else cls += ' avail' + (sel.date === key ? ' selected' : '') + (key === dateKey(now) && sel.date !== key ? ' today' : '');
+    const click = (!past && !closed) ? `onclick="pickDate('${key}')"` : '';
+    html += `<div class="${cls}" ${click}>${d}</div>`;
+  }
+  document.getElementById('cal-grid').innerHTML = html;
+}
+function prevMonth() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCal(); }
+function nextMonth() { calMonth++; if (calMonth > 11) { calMonth = 0;  calYear++; } renderCal(); }
+async function pickDate(key) {
+  sel.date = key; sel.slot = null;
+  renderCal();
+  document.getElementById('btn-fs2').disabled = false;
+  await loadTakenSlots(key);
+}
+
+async function loadTakenSlots(dateStr) {
+  const { data } = await supabase
+    .from('bookings')
+    .select('hour')
+    .eq('date', dateStr)
+    .in('status', ['confirmed']);
+  takenSlots[dateStr] = (data || []).map(b => b.hour);
+}
+
+// ---- Slots ----
+async function renderSlots() {
+  if (!takenSlots[sel.date]) await loadTakenSlots(sel.date);
+  const d    = parseDate(sel.date);
+  const dow  = d.getDay();
+  const close = dow === 6 ? 18 : 20;
+  document.getElementById('slots-label').textContent = formatDateLong(sel.date);
+  document.getElementById('slots-note').textContent = dow === 6 ? 'Sábado: hasta las 18:00' : 'Lunes a viernes: 9:00 – 20:00';
+  const taken = takenSlots[sel.date] || [];
+  let html = '';
+  for (let h = 9; h < close; h++) {
+    const isTaken = taken.includes(h);
+    const isSel   = sel.slot === h;
+    html += `<div class="slot-chip${isTaken?' taken':isSel?' selected':''}" ${isTaken?'':` onclick="pickSlot(${h})"`}>${fmt2(h)}:00</div>`;
+  }
+  document.getElementById('slots-grid').innerHTML = html;
+  document.getElementById('btn-fs3').disabled = sel.slot === null;
+}
+function pickSlot(h) {
+  sel.slot = h;
+  document.querySelectorAll('.slot-chip').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('.slot-chip').forEach(el => { if (el.textContent === fmt2(h)+':00') el.classList.add('selected'); });
+  document.getElementById('btn-fs3').disabled = false;
+}
+
+// ---- Summary ----
+function renderSummary() {
+  document.getElementById('summary-box').innerHTML = `
+    <div style="margin-bottom:6px">
+      <p style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Servicio</p>
+      <p style="font-size:14px;color:var(--text)">${sel.service}</p>
+    </div>
+    <div class="divider"></div>
+    <div style="margin-bottom:6px">
+      <p style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Fecha y hora</p>
+      <p style="font-size:14px;color:var(--text)">${formatDateLong(sel.date)}</p>
+      <p style="font-size:13px;color:var(--gold-light);margin-top:2px">${fmt2(sel.slot)}:00 – ${fmt2(sel.slot+1)}:00</p>
+    </div>
+    <div class="divider"></div>
+    <p style="font-size:11px;letter-spacing:1px;color:var(--text-muted)">
+      <i class="ti ti-map-pin" style="font-size:12px"></i> Av. Providencia 2550, Local 42
+    </p>`;
+}
+
+// ---- Confirm ----
+async function confirmBooking() {
+  const btn = document.getElementById('btn-confirm');
+  const err = document.getElementById('booking-error');
+  err.classList.add('hidden');
+  setLoading(btn, true);
+
+  const { error } = await supabase.from('bookings').insert({
+    client_id: profile.id,
+    service: sel.service,
+    date: sel.date,
+    hour: sel.slot,
+    status: 'confirmed'
+  });
+
+  if (error) {
+    err.textContent = error.code === '23505'
+      ? 'Esa hora ya fue reservada. Elige otra.'
+      : 'Error al reservar. Intenta de nuevo.';
+    err.classList.remove('hidden');
+    setLoading(btn, false);
+    if (error.code === '23505') { await loadTakenSlots(sel.date); goStep(3); }
+    return;
+  }
+
+  document.getElementById('success-detail').innerHTML =
+    `<strong style="color:var(--text)">${sel.service}</strong><br>
+     ${formatDateLong(sel.date)}<br>
+     <span style="color:var(--gold-light)">${fmt2(sel.slot)}:00 – ${fmt2(sel.slot+1)}:00</span><br><br>
+     Av. Providencia 2550, Local 42`;
+  goStep(5);
+  setLoading(btn, false);
+}
+
+function resetBooking() {
+  sel = { service: null, date: null, slot: null };
+  renderServices();
+  goStep(1);
+}
+
+// ---- My bookings ----
+async function loadMyBookings() {
+  const el = document.getElementById('my-bookings-list');
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('client_id', profile.id)
+    .order('date', { ascending: false })
+    .order('hour', { ascending: false });
+
+  if (error || !data?.length) {
+    el.innerHTML = `<div class="empty"><i class="ti ti-calendar-off"></i><p>Sin reservas aún</p></div>`;
+    return;
+  }
+
+  el.innerHTML = data.map(b => {
+    const isPast = new Date(b.date) < now;
+    return `<div class="booking-item">
+      <div class="booking-dot${b.status==='cancelled'?' cancelled':b.status==='done'?' done':''}"></div>
+      <div style="flex:1">
+        <div style="font-size:13px;color:var(--text);margin-bottom:3px">${b.service}</div>
+        <div style="font-size:12px;color:var(--text-muted)">${formatDateLong(b.date)} · ${fmt2(b.hour)}:00</div>
+        <div style="margin-top:6px"><span class="badge badge-${b.status}">${{confirmed:'Confirmada',cancelled:'Cancelada',done:'Completada'}[b.status]}</span></div>
+      </div>
+      ${b.status === 'confirmed' && !isPast
+        ? `<button class="btn btn-danger btn-sm" onclick="cancelBooking('${b.id}')">Cancelar</button>`
+        : ''}
+    </div>`;
+  }).join('');
+}
+
+async function cancelBooking(id) {
+  if (!confirm('¿Cancelar esta reserva?')) return;
+  const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
+  if (error) { showToast('Error al cancelar'); return; }
+  showToast('Reserva cancelada', 'gold');
+  loadMyBookings();
+}
+</script>
+</body>
+</html>

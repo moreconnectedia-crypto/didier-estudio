@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Didier Estudio — Acceder</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+</head>
+<body>
+
+<div id="page-loader"><div class="spinner"></div></div>
+<div id="toast"></div>
+
+<div class="page-center">
+  <div class="container" style="width:100%;max-width:400px">
+
+    <!-- Logo -->
+    <div class="text-center mb-3">
+      <div style="font-family:var(--font-display);font-size:2rem;font-weight:300;letter-spacing:5px;color:var(--gold-light);text-transform:uppercase">Didier</div>
+      <div style="font-size:9px;letter-spacing:5px;color:var(--text-muted);text-transform:uppercase;margin-top:2px">Estudio · Barbería</div>
+      <div class="gold-line mt-2"></div>
+    </div>
+
+    <!-- Tabs login / registro -->
+    <div style="display:flex;border-bottom:1px solid var(--border);margin-bottom:1.5rem">
+      <button class="btn-ghost" id="tab-login" onclick="switchTab('login')"
+        style="flex:1;padding:10px;font-size:11px;letter-spacing:2px;text-transform:uppercase;border-bottom:2px solid var(--gold);color:var(--gold-light)">
+        Ingresar
+      </button>
+      <button class="btn-ghost" id="tab-register" onclick="switchTab('register')"
+        style="flex:1;padding:10px;font-size:11px;letter-spacing:2px;text-transform:uppercase;border-bottom:2px solid transparent;color:var(--text-muted)">
+        Crear cuenta
+      </button>
+    </div>
+
+    <!-- Error global -->
+    <div id="auth-error" class="form-error hidden"></div>
+
+    <!-- LOGIN -->
+    <form id="form-login" onsubmit="handleLogin(event)">
+      <div class="field">
+        <label class="field-label">Email</label>
+        <input type="email" class="field-input" id="login-email" placeholder="tu@email.com" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label class="field-label">Contraseña</label>
+        <input type="password" class="field-input" id="login-pass" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-gold btn-full mt-2" id="btn-login">Ingresar</button>
+    </form>
+
+    <!-- REGISTRO -->
+    <form id="form-register" class="hidden" onsubmit="handleRegister(event)">
+      <div class="field">
+        <label class="field-label">Nombre completo</label>
+        <input type="text" class="field-input" id="reg-name" placeholder="Tu nombre" required autocomplete="name">
+      </div>
+      <div class="field">
+        <label class="field-label">Teléfono (opcional)</label>
+        <input type="tel" class="field-input" id="reg-phone" placeholder="+56 9 xxxx xxxx" autocomplete="tel">
+      </div>
+      <div class="field">
+        <label class="field-label">Email</label>
+        <input type="email" class="field-input" id="reg-email" placeholder="tu@email.com" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label class="field-label">Contraseña</label>
+        <input type="password" class="field-input" id="reg-pass" placeholder="Mínimo 6 caracteres" required minlength="6" autocomplete="new-password">
+      </div>
+      <button type="submit" class="btn btn-gold btn-full mt-2" id="btn-register">Crear cuenta</button>
+      <p class="text-center text-small text-muted mt-2">Al registrarte aceptas reservar citas en Didier Estudio.</p>
+    </form>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supabase.js"></script>
+<script>
+initSupabase();
+
+// Si ya hay sesión, redirigir
+(async () => {
+  const user = await getCurrentUser();
+  if (user) {
+    const profile = await getCurrentProfile();
+    redirectByRole(profile?.role);
+  }
+  hidePageLoader();
+})();
+
+function redirectByRole(role) {
+  window.location.href = role === 'barber' ? 'dashboard.html' : 'agenda.html';
+}
+
+function switchTab(tab) {
+  const isLogin = tab === 'login';
+  document.getElementById('form-login').classList.toggle('hidden', !isLogin);
+  document.getElementById('form-register').classList.toggle('hidden', isLogin);
+  document.getElementById('tab-login').style.borderBottomColor = isLogin ? 'var(--gold)' : 'transparent';
+  document.getElementById('tab-login').style.color = isLogin ? 'var(--gold-light)' : 'var(--text-muted)';
+  document.getElementById('tab-register').style.borderBottomColor = !isLogin ? 'var(--gold)' : 'transparent';
+  document.getElementById('tab-register').style.color = !isLogin ? 'var(--gold-light)' : 'var(--text-muted)';
+  document.getElementById('auth-error').classList.add('hidden');
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-login');
+  const errEl = document.getElementById('auth-error');
+  errEl.classList.add('hidden');
+  setLoading(btn, true);
+
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+  if (error) {
+    errEl.textContent = error.message === 'Invalid login credentials'
+      ? 'Email o contraseña incorrectos.'
+      : error.message;
+    errEl.classList.remove('hidden');
+    setLoading(btn, false);
+    return;
+  }
+
+  const profile = await getCurrentProfile();
+  redirectByRole(profile?.role);
+}
+
+async function handleRegister(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-register');
+  const errEl = document.getElementById('auth-error');
+  errEl.classList.add('hidden');
+  setLoading(btn, true);
+
+  const name = document.getElementById('reg-name').value.trim();
+  const phone = document.getElementById('reg-phone').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pass = document.getElementById('reg-pass').value;
+
+  const { error } = await supabase.auth.signUp({
+    email, password: pass,
+    options: { data: { full_name: name, phone, role: 'client' } }
+  });
+
+  if (error) {
+    errEl.textContent = error.message;
+    errEl.classList.remove('hidden');
+    setLoading(btn, false);
+    return;
+  }
+
+  showToast('Cuenta creada. Revisa tu email para confirmar.', 'gold');
+  setTimeout(() => switchTab('login'), 2000);
+  setLoading(btn, false);
+}
+</script>
+</body>
+</html>
