@@ -141,7 +141,7 @@ async function handleRegister(e) {
   const email = document.getElementById('reg-email').value.trim();
   const pass = document.getElementById('reg-pass').value;
 
-  const { error } = await supabase.auth.signUp({sbClient.auth.signUp.
+  const { error } = await sbClient.auth.signUp ( {
                                               
     email, password: pass,
     options: { data: { full_name: name, phone, role: 'client' } }
